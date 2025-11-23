@@ -1,0 +1,141 @@
+title: Parking Monitor
+views:
+  - title: Parking
+    path: parking
+    theme: Backend-selected
+    badges: []
+    cards:
+      # Status Header
+      - type: vertical-stack
+        cards:
+          # Car Location Input
+          - type: tile
+            entity: input_text.car_current_street
+            name: Where is the car?
+            icon: mdi:car-connected
+            color: blue
+            tap_action:
+              action: more-info
+
+          # Main Alert Card - Active Danger
+          - type: conditional
+            conditions:
+              - entity: binary_sensor.car_in_suspended_bay
+                state: 'on'
+            card:
+              type: markdown
+              content: |
+                <div style="background:linear-gradient(135deg,#ff6b6b 0%,#ee5a6f 100%);color:white;border-radius:12px;padding:24px;box-shadow:0 8px 16px rgba(255,107,107,0.3);margin:-16px;">
+
+                <h2 style="margin:0 0 8px 0;text-align:center;font-size:1.8em;">🚨 MOVE CAR IMMEDIATELY</h2>
+                <p style="margin:0 0 20px 0;text-align:center;opacity:0.9;font-size:0.95em;">Active suspension at your location</p>
+
+                <h3 style="margin:16px 0 8px 0;font-size:1.2em;">📍 Location</h3>
+                <p style="margin:0 0 16px 0;font-size:1.1em;font-weight:bold;">{{ states('input_text.car_current_street') }}</p>
+
+                <h3 style="margin:16px 0 8px 0;font-size:1.2em;">⚠️ Active Suspensions</h3>
+                <p style="margin:0;font-size:1em;line-height:1.6;">{{ state_attr('binary_sensor.car_in_suspended_bay', 'active_suspensions') }}</p>
+
+                </div>
+
+          # Upcoming Warning Card
+          - type: conditional
+            conditions:
+              - entity: binary_sensor.car_in_suspended_bay
+                state: 'off'
+              - entity: binary_sensor.car_in_suspended_bay
+                attribute: upcoming_risk
+                state: true
+            card:
+              type: markdown
+              content: |
+                <div style="background:linear-gradient(135deg,#ffd93d 0%,#f9ca24 100%);border-radius:12px;padding:20px;box-shadow:0 4px 12px rgba(255,217,61,0.3);margin:-16px;">
+
+                <h2 style="margin:0 0 16px 0;font-size:1.5em;">⚠️ Upcoming This Week</h2>
+
+                <p style="margin:0;font-size:1em;line-height:1.6;">Suspensions starting in the next 7 days:</p>
+
+                <p style="margin:12px 0 0 0;font-size:1em;line-height:1.6;">{{ state_attr('binary_sensor.car_in_suspended_bay', 'upcoming_suspensions') }}</p>
+
+                </div>
+
+          # All Clear Card
+          - type: conditional
+            conditions:
+              - entity: binary_sensor.car_in_suspended_bay
+                state: 'off'
+              - entity: binary_sensor.car_in_suspended_bay
+                attribute: upcoming_risk
+                state: false
+            card:
+              type: markdown
+              content: |
+                <div style="background:linear-gradient(135deg,#6bcf7f 0%,#4cd964 100%);color:white;border-radius:12px;padding:20px;box-shadow:0 4px 12px rgba(107,207,127,0.3);margin:-16px;">
+
+                <h2 style="margin:0 0 16px 0;font-size:1.5em;">✅ All Clear</h2>
+
+                <p style="margin:0;font-size:1em;">No active or upcoming suspensions at your location.</p>
+
+                </div>
+
+      # Interactive Map
+      - type: map
+        title: 🗺️ Active Suspensions Map
+        aspect_ratio: '16:9'
+        default_zoom: 16
+        dark_mode: auto
+        entities:
+          - entity: device_tracker.parking_monitor_car
+            name: My Car
+            color: blue
+          - entity: device_tracker.sus_active_0
+          - entity: device_tracker.sus_active_1
+          - entity: device_tracker.sus_active_2
+          - entity: device_tracker.sus_active_3
+          - entity: device_tracker.sus_active_4
+
+      # All Suspensions List
+      - type: markdown
+        title: 📋 All Suspensions
+        content: |
+          {% set status = state_attr('binary_sensor.car_in_suspended_bay', 'last_status') %}
+
+          {% if status == 'Cache Empty' %}
+
+          <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px;margin:0 0 16px 0;border-radius:4px;">
+          <p style="margin:0;color:#856404;"><strong>⚠️ System Status:</strong> {{ status }}</p>
+          <p style="margin:8px 0 0 0;color:#856404;font-size:0.9em;"><em>To fix: Forward a suspension email to yourself to populate the cache.</em></p>
+          </div>
+
+          {% elif status and status not in ['OK', 'Script Completed'] %}
+
+          <div style="background:#f8d7da;border-left:4px solid #dc3545;padding:12px;margin:0 0 16px 0;border-radius:4px;">
+          <p style="margin:0;color:#721c24;"><strong>⚠️ System Status:</strong> {{ status }}</p>
+          </div>
+
+          {% endif %}
+
+          <h3 style="margin:16px 0 12px 0;font-size:1.2em;">🔴 Active Today</h3>
+
+          {{ state_attr('binary_sensor.car_in_suspended_bay', 'all_active_suspensions') }}
+
+          <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
+
+          <h3 style="margin:16px 0 12px 0;font-size:1.2em;">🔵 Future Suspensions</h3>
+
+          {{ state_attr('binary_sensor.car_in_suspended_bay', 'all_upcoming_suspensions') }}
+
+          <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
+
+          <p style="text-align:center;color:#aaa;font-size:8px;margin:8px 0 0 0;padding:0;">
+          📧 Email Data From: {{ state_attr('binary_sensor.car_in_suspended_bay', 'email_data_date') or 'Unknown' }} • 🔄 Last Checked: {{ state_attr('binary_sensor.car_in_suspended_bay', 'last_checked') or 'Never' }}
+          </p>
+
+      # Settings Card
+      - type: entities
+        title: ⚙️ Settings
+        show_header_toggle: false
+        entities:
+          - entity: input_boolean.parking_debug_mode
+            name: Verbose Logging
+            icon: mdi:bug-outline

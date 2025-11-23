@@ -1,0 +1,92 @@
+input_text:
+  car_current_street:
+    name: Car Current Street
+    icon: mdi:car-connected
+    initial: "Town Hall, Hornton Street"
+
+input_boolean:
+  parking_debug_mode:
+    name: Parking Debug Logging
+    icon: mdi:bug
+
+template:
+  - binary_sensor:
+      - name: "Car in Suspended Bay"
+        unique_id: car_in_suspended_bay
+        state: "off"
+        device_class: problem
+        attributes:
+            active_suspensions: "None"
+            upcoming_suspensions: "None"
+            upcoming_risk: false
+            all_active_suspensions: "Loading..."
+            all_upcoming_suspensions: "Loading..."
+
+lovelace:
+  dashboards:
+    parking-dashboard:
+      mode: yaml
+      title: Parking Monitor
+      icon: mdi:car
+      show_in_sidebar: true
+      filename: dashboards/parking_dashboard.yaml
+
+automation:
+  - alias: "Parking: Check Suspensions"
+    description: "Checks email/location for active or upcoming suspensions"
+    mode: restart
+    trigger:
+      # 1. New Email Event (REMOVED STRICT SENDER FILTER)
+      - platform: event
+        event_type: imap_content
+        # We accept any email that matches the IMAP integration's search query
+      
+      # 2. Car Moved
+      - platform: state
+        entity_id: input_text.car_current_street
+      
+      # 3. Daily Check (8:00 AM)
+      - platform: time
+        at: "08:00:00"
+        
+      # 4. Run on Startup
+      - platform: homeassistant
+        event: start
+
+    action:
+      - service: pyscript.check_parking
+        data:
+          # Use | to preserve newlines, crucial for email parsing
+          email_body: |
+            {% if trigger.platform == 'event' %}
+              {{ trigger.event.data.get('text', '') }}
+            {% else %}
+              {{ none }}
+            {% endif %}
+          
+          car_location: "{{ states('input_text.car_current_street') }}"
+          verbose_logging: "{{ is_state('input_boolean.parking_debug_mode', 'on') }}"
+      
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.car_in_suspended_bay
+                state: "on"
+            sequence:
+              - service: notify.notify
+                data:
+                  title: "🚨 MOVE CAR NOW"
+                  message: "Active suspension at {{ states('input_text.car_current_street') }}! \n\n{{ state_attr('binary_sensor.car_in_suspended_bay', 'active_suspensions') }}"
+                  data:
+                    color: "#FF0000"
+          
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.car_in_suspended_bay
+                attribute: upcoming_risk
+                state: true
+            sequence:
+              - service: notify.notify
+                data:
+                  title: "⚠️ Upcoming Suspension"
+                  message: "Plan ahead! Suspension starts this week at {{ states('input_text.car_current_street') }}. \n\n{{ state_attr('binary_sensor.car_in_suspended_bay', 'upcoming_suspensions') }}"
