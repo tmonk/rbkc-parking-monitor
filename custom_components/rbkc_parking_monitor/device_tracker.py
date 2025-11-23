@@ -64,14 +64,19 @@ class CarLocationTracker(ParkingMonitorEntity, TrackerEntity):
         return self.coordinator.config_entry.data[CONF_CAR_LOCATION]
 
     @property
-    def state(self) -> str | None:
-        """Return a human-readable location instead of 'home/away'."""
-        return self.location_name or "unknown"
-
-    @property
     def available(self) -> bool:
         """Return if entity is available."""
         return self.coordinator.data.get("car_coords") is not None
+
+    def _handle_coordinator_update(self) -> None:
+        """Sync state/name with config entry changes."""
+        from .const import CONF_CAR_LOCATION
+
+        current_loc = self.coordinator.config_entry.data[CONF_CAR_LOCATION]
+        # Force state to the configured location string to avoid "home/away".
+        self._attr_state = current_loc
+        self._attr_location_name = current_loc
+        super()._handle_coordinator_update()
 
 
 class SuspensionLocationTracker(ParkingMonitorEntity, TrackerEntity):

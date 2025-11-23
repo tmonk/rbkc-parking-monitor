@@ -116,7 +116,9 @@ class ParkingDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             debug_mode=new_data.get(CONF_DEBUG_MODE, False),
         )
 
-        # Trigger immediate update
+        # Trigger an update so entities pick up the new location immediately
+        # even if the next fetch doesn't change payload content.
+        self.async_set_updated_data(self.data or {})
         await self.async_refresh()
 
     async def async_shutdown(self) -> None:
