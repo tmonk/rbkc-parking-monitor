@@ -9,7 +9,7 @@ Home Assistant custom integration that monitors RBKC parking suspension emails, 
 - **Auto-notifications**: Alerts via `notify.notify` when suspensions affect your car
 - **IMAP Integration**: Automatically processes incoming suspension emails
 - **UI Configuration**: Set car location and preferences via Settings UI
-- **Dashboard**: Beautiful Lovelace dashboard with status cards and interactive map
+- **Dashboard**: Lovelace dashboard with status cards and interactive map
 
 ## Requirements
 
@@ -103,7 +103,7 @@ automation:
 
 ### Dashboard
 
-A beautiful dashboard is **automatically registered** when you install the integration.
+A dashboard is **automatically registered** when you install the integration.
 
 After installation, look for **"Parking Monitor"** (car icon) in your sidebar. The dashboard includes:
 
@@ -177,18 +177,6 @@ Adjust how far ahead you want warnings:
 - Increase for more advance notice (e.g., 14 days)
 - Decrease to only see imminent suspensions (e.g., 3 days)
 
-### Notification Service
-
-By default, notifications go to `notify.notify`. To use a different service, you'll need to modify `custom_components/rbkc_parking_monitor/__init__.py`:
-
-```python
-await hass.services.async_call(
-    "notify",
-    "mobile_app_your_phone",  # Change this
-    {...}
-)
-```
-
 ## Troubleshooting
 
 ### "Cache Empty" Status
@@ -229,7 +217,3 @@ await hass.services.async_call(
 ## Contributing
 
 Issues and pull requests welcome at [GitHub](https://github.com/tmonk/rbkc-parking-monitor).
-
-## License
-
-Apache License 2.0
