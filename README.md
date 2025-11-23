@@ -24,7 +24,7 @@ Home Assistant custom integration that monitors RBKC parking suspension emails, 
 1. **Add Custom Repository** (if not in HACS default):
    - Open HACS in Home Assistant
    - Click the three dots menu (⋮) → Custom repositories
-   - Add repository URL: `https://github.com/YOUR_GITHUB_USERNAME/rbkc-parking-monitor`
+   - Add repository URL: `https://github.com/tmonk/rbkc-parking-monitor`
    - Category: Integration
    - Click Add
 
@@ -228,7 +228,7 @@ await hass.services.async_call(
 
 ## Contributing
 
-Issues and pull requests welcome at [GitHub](https://github.com/YOUR_GITHUB_USERNAME/rbkc-parking-monitor).
+Issues and pull requests welcome at [GitHub](https://github.com/tmonk/rbkc-parking-monitor).
 
 ## License
 
