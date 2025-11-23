@@ -34,6 +34,3 @@
 ## ❓ Troubleshooting
 *   **"Cache Empty"**: The system hasn't seen an email yet. Forward a suspension email to your monitored inbox.
 *   **Wrong Location**: Nominatim geocoding is good but not perfect. Try adding the full postcode (e.g., "W8 7NX").
-
-## ⚠️ Disclaimer
-This tool is for assistance only. **Always check physical street signage** before leaving your car. The developers are not responsible for any Parking Charge Notices (PCNs) incurred.
