@@ -10,3 +10,23 @@ check_parking:
       selector:
         text:
           multiline: true
+
+set_car_location:
+  name: Set Car Location
+  description: Update the monitored car location and refresh the monitor.
+  fields:
+    car_location:
+      name: Car Location
+      description: Address or area to monitor for suspensions.
+      example: "W8 7NX"
+      required: true
+      selector:
+        text:
+          multiline: false
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID if you have multiple RBKC Parking Monitor entries.
+      required: false
+      selector:
+        text:
+          multiline: false

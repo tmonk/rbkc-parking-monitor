@@ -17,6 +17,14 @@ views:
             tap_action:
               action: more-info
 
+          # Edit Car Location
+          - type: entities
+            title: Update Car Location
+            show_header_toggle: false
+            entities:
+              - entity: input_text.rbkc_parking_location
+                name: Car Location (updates apply automatically)
+
           # Main Alert Card - Active Danger
           - type: conditional
             conditions:

@@ -9,3 +9,21 @@ lovelace:
       icon: mdi:car
       show_in_sidebar: true
       filename: custom_components/rbkc_parking_monitor/dashboard.yaml
+
+input_text:
+  rbkc_parking_location:
+    name: Parking Monitor Car Location
+    icon: mdi:car-estate
+    max: 80
+
+automation:
+  - id: rbkc_parking_monitor_sync_car_location
+    alias: RBKC Parking Monitor - Sync Car Location
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id: input_text.rbkc_parking_location
+    action:
+      - service: rbkc_parking_monitor.set_car_location
+        data:
+          car_location: "{{ trigger.to_state.state }}"

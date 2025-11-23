@@ -30,6 +30,13 @@ CHECK_PARKING_SCHEMA = vol.Schema(
     }
 )
 
+SET_CAR_LOCATION_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_CAR_LOCATION): cv.string,
+        vol.Optional("entry_id"): cv.string,
+    }
+)
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up RBKC Parking Suspension Monitor from a config entry."""
@@ -90,6 +97,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "check_parking",
         async_check_parking,
         schema=CHECK_PARKING_SCHEMA,
+    )
+
+    async def async_set_car_location(call: ServiceCall) -> None:
+        """Handle set_car_location service call."""
+        new_location = call.data[CONF_CAR_LOCATION].strip()
+        if not new_location:
+            _LOGGER.warning("Car location is empty; ignoring update request")
+            return
+
+        entry_id = call.data.get("entry_id")
+        coordinator_map: dict[str, ParkingDataUpdateCoordinator] = hass.data.get(DOMAIN, {})
+
+        coordinator: ParkingDataUpdateCoordinator | None = None
+        if entry_id:
+            coordinator = coordinator_map.get(entry_id)
+        else:
+            coordinator = next(iter(coordinator_map.values()), None)
+
+        if not coordinator:
+            _LOGGER.warning(
+                "No coordinator found for set_car_location (entry_id=%s)", entry_id
+            )
+            return
+
+        await coordinator.async_update_config(car_location=new_location)
+        _LOGGER.info("Updated car location to '%s' via set_car_location service", new_location)
+
+    hass.services.async_register(
+        DOMAIN,
+        "set_car_location",
+        async_set_car_location,
+        schema=SET_CAR_LOCATION_SCHEMA,
     )
 
     # Set up reload listener
