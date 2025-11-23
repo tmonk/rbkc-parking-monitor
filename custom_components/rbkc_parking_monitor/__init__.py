@@ -156,14 +156,28 @@ async def async_create_dashboard(hass: HomeAssistant) -> None:
         if "homeassistant" not in config_data:
             config_data["homeassistant"] = {}
 
-        # Ensure packages exists
-        if "packages" not in config_data["homeassistant"]:
-            config_data["homeassistant"]["packages"] = {}
+        # Check packages configuration
+        ha_config = config_data["homeassistant"]
 
-        # Add our package reference
-        if "rbkc_parking" not in config_data["homeassistant"]["packages"]:
-            # This will be rendered as the include directive
-            config_data["homeassistant"]["packages"]["rbkc_parking"] = (
+        # If packages doesn't exist or is not a dict (e.g., it's !include_dir_named)
+        if "packages" not in ha_config:
+            # Create packages dict
+            ha_config["packages"] = {}
+        elif not isinstance(ha_config["packages"], dict):
+            # packages is a tag (like !include_dir_named), we can't modify it automatically
+            _LOGGER.warning(
+                "configuration.yaml uses packages with !include directive. "
+                "Cannot automatically add dashboard. Please manually add: "
+                "rbkc_parking: !include custom_components/rbkc_parking_monitor/package.yaml"
+            )
+            return
+
+        # Add our package reference if not already there
+        if "rbkc_parking" not in ha_config["packages"]:
+            from ruamel.yaml.scalarstring import PreservedScalarString
+
+            # Add the include reference
+            ha_config["packages"]["rbkc_parking"] = PreservedScalarString(
                 "!include custom_components/rbkc_parking_monitor/package.yaml"
             )
 
