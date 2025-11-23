@@ -1,6 +1,7 @@
 """The RBKC Parking Suspension Monitor integration."""
 from __future__ import annotations
 
+import os
 import logging
 from pathlib import Path
 
@@ -182,9 +183,24 @@ async def async_create_dashboard(hass: HomeAssistant) -> None:
                     )
                     return
 
+                target_package = Path(
+                    hass.config.path("custom_components/rbkc_parking_monitor/package.yaml")
+                )
+
+                if not target_package.exists():
+                    _LOGGER.warning(
+                        "RBKC Parking package.yaml not found at %s; cannot add package file.",
+                        target_package,
+                    )
+                    return
+
+                # Relativize include to the packages directory (works even if packages_dir is custom)
+                rel_path = os.path.relpath(target_package, packages_dir)
+                include_path = Path(rel_path)
+
                 await hass.async_add_executor_job(
                     package_file.write_text,
-                    "!include custom_components/rbkc_parking_monitor/package.yaml\n",
+                    f"!include {include_path.as_posix()}\n",
                 )
                 _LOGGER.info(
                     "Added package file to %s for RBKC Parking Monitor. Restart required.",
