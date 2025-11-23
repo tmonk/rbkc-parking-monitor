@@ -177,12 +177,6 @@ async def async_create_dashboard(hass: HomeAssistant) -> None:
                 packages_dir.mkdir(parents=True, exist_ok=True)
                 package_file = packages_dir / "rbkc_parking_monitor.yaml"
 
-                if package_file.exists():
-                    _LOGGER.debug(
-                        "Package file already exists in %s, skipping creation", packages_dir
-                    )
-                    return
-
                 target_package = Path(
                     hass.config.path("custom_components/rbkc_parking_monitor/package.yaml")
                 )
@@ -198,17 +192,43 @@ async def async_create_dashboard(hass: HomeAssistant) -> None:
                 rel_path = os.path.relpath(target_package, packages_dir)
                 include_path = Path(rel_path)
 
+                include_line = f"!include {include_path.as_posix()}\n"
+
+                if package_file.exists():
+                    current = await hass.async_add_executor_job(
+                        package_file.read_text
+                    )
+                    if include_line.strip() in current:
+                        _LOGGER.debug(
+                            "Package file already present and correct in %s", package_file
+                        )
+                        backup_note = (
+                            "No backup of configuration.yaml was needed; existing package "
+                            "file already referenced the dashboard."
+                        )
+                        return
+
+                    # Backup and overwrite incorrect content
+                    package_backup = package_file.with_suffix(package_file.suffix + ".backup")
+                    await hass.async_add_executor_job(
+                        lambda: package_file.rename(package_backup)
+                    )
+                    backup_note = (
+                        f"A backup of your packages file was saved to `{package_backup.name}`."
+                    )
+                else:
+                    backup_note = (
+                        "No backup of configuration.yaml was needed; package file was created "
+                        f"in `{packages_dir.name}`."
+                    )
+
                 await hass.async_add_executor_job(
                     package_file.write_text,
-                    f"!include {include_path.as_posix()}\n",
+                    include_line,
                 )
                 _LOGGER.info(
-                    "Added package file to %s for RBKC Parking Monitor. Restart required.",
+                    "Ensured package file in %s for RBKC Parking Monitor. Restart required.",
                     packages_dir,
-                )
-                backup_note = (
-                    "No backup of configuration.yaml was needed; package file was created "
-                    f"in `{packages_dir.name}`."
                 )
 
             else:
