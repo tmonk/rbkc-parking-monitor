@@ -39,29 +39,46 @@ class CarLocationTracker(ParkingMonitorEntity, TrackerEntity):
         """Initialize the tracker."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{TRACKER_CAR}"
+        self._attr_source_type = SourceType.GPS
+        # Keep state/location aligned with configured car location from the start.
+        self._attr_location_name = self._get_config_location()
+        self._attr_state = self._attr_location_name
+        self._attr_latitude = None
+        self._attr_longitude = None
+
+    def _get_config_location(self) -> str:
+        """Return the configured car location string."""
+        return self.coordinator.car_location
 
     @property
     def latitude(self) -> float | None:
         """Return latitude of car."""
-        coords = self.coordinator.data.get("car_coords")
-        return coords[0] if coords else None
+        return self._attr_latitude
 
     @property
     def longitude(self) -> float | None:
         """Return longitude of car."""
-        coords = self.coordinator.data.get("car_coords")
-        return coords[1] if coords else None
+        return self._attr_longitude
+
+    @property
+    def state(self) -> str:
+        """Force state to the configured location instead of zone home/away."""
+        return self._attr_location_name
 
     @property
     def source_type(self) -> SourceType:
         """Return the source type."""
-        return SourceType.GPS
+        return self._attr_source_type
 
     @property
     def location_name(self) -> str:
         """Return location name."""
-        from .const import CONF_CAR_LOCATION
-        return self.coordinator.config_entry.data[CONF_CAR_LOCATION]
+        return self._attr_location_name
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        """Expose location as an attribute so automations can track changes."""
+        return {"location_name": self._get_config_location()}
 
     @property
     def available(self) -> bool:
@@ -70,12 +87,14 @@ class CarLocationTracker(ParkingMonitorEntity, TrackerEntity):
 
     def _handle_coordinator_update(self) -> None:
         """Sync state/name with config entry changes."""
-        from .const import CONF_CAR_LOCATION
+        current_loc = self._get_config_location()
+        coords = self.coordinator.data.get("car_coords")
 
-        current_loc = self.coordinator.config_entry.data[CONF_CAR_LOCATION]
-        # Force state to the configured location string to avoid "home/away".
-        self._attr_state = current_loc
         self._attr_location_name = current_loc
+        self._attr_state = current_loc
+        self._attr_latitude = coords[0] if coords else None
+        self._attr_longitude = coords[1] if coords else None
+
         super()._handle_coordinator_update()
 
 

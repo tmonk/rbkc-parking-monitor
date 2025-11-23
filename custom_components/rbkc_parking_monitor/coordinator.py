@@ -37,9 +37,12 @@ class ParkingDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> None:
         """Initialize the coordinator."""
         self.config_entry = entry
+        # Cache car location separately so entities can read the latest value
+        # even before HA reloads the config entry object.
+        self.car_location = entry.data[CONF_CAR_LOCATION]
         self.client = ParkingApiClient(
             hass,
-            car_location=entry.data[CONF_CAR_LOCATION],
+            car_location=self.car_location,
             proximity_threshold=entry.data[CONF_PROXIMITY_THRESHOLD],
             upcoming_window_days=entry.data[CONF_UPCOMING_WINDOW_DAYS],
             debug_mode=entry.data.get(CONF_DEBUG_MODE, False),
@@ -95,6 +98,7 @@ class ParkingDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         new_data = dict(self.config_entry.data)
         if car_location is not None:
             new_data[CONF_CAR_LOCATION] = car_location
+            self.car_location = car_location
         if proximity_threshold is not None:
             new_data[CONF_PROXIMITY_THRESHOLD] = proximity_threshold
         if upcoming_window_days is not None:
@@ -110,7 +114,7 @@ class ParkingDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self.client.async_close()
         self.client = ParkingApiClient(
             self.hass,
-            car_location=new_data[CONF_CAR_LOCATION],
+            car_location=self.car_location,
             proximity_threshold=new_data[CONF_PROXIMITY_THRESHOLD],
             upcoming_window_days=new_data[CONF_UPCOMING_WINDOW_DAYS],
             debug_mode=new_data.get(CONF_DEBUG_MODE, False),

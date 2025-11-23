@@ -35,10 +35,10 @@ automation:
         event: start
       - platform: state
         entity_id: device_tracker.parking_monitor_car
-        attribute: location_name
     condition:
       - condition: template
-        value_template: "{{ state_attr('device_tracker.parking_monitor_car', 'location_name') not in [none, ''] }}"
+        value_template: >-
+          {{ state_attr('device_tracker.parking_monitor_car', 'location_name') not in [none, '', 'unknown', 'unavailable'] }}
     action:
       - service: input_text.set_value
         target:
