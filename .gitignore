@@ -30,7 +30,4 @@ Desktop.ini
 test_emails/
 *.txt
 *.json
-
-# Scripts
 sync-ha.sh
-.github
