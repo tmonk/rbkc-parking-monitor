@@ -1,6 +1,8 @@
 """Device tracker platform for RBKC Parking Suspension Monitor."""
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.device_tracker import SourceType, TrackerEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -83,7 +85,8 @@ class CarLocationTracker(ParkingMonitorEntity, TrackerEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self.coordinator.data.get("car_coords") is not None
+        # Available if we have any coordinator data, even without coords
+        return self.coordinator.last_update_success or bool(self.coordinator.data)
 
     def _handle_coordinator_update(self) -> None:
         """Sync state/name with config entry changes."""
@@ -100,8 +103,6 @@ class CarLocationTracker(ParkingMonitorEntity, TrackerEntity):
 
 class SuspensionLocationTracker(ParkingMonitorEntity, TrackerEntity):
     """Tracker for suspension location."""
-
-    _attr_icon = "mdi:alert-circle"
 
     def __init__(
         self, coordinator: ParkingDataUpdateCoordinator, index: int
@@ -136,15 +137,29 @@ class SuspensionLocationTracker(ParkingMonitorEntity, TrackerEntity):
         return SourceType.GPS
 
     @property
-    def location_name(self) -> str | None:
+    def location_name(self) -> str:
         """Return location name."""
         suspension = self._get_suspension_data()
         if suspension:
             return suspension.get("street", f"Suspension {self._index + 1}")
-        return None
+        return "No Suspension"
 
     @property
-    def extra_state_attributes(self) -> dict[str, any]:
+    def state(self) -> str:
+        """Return the state of the tracker."""
+        if self._get_suspension_data():
+            return self.location_name
+        return "No Suspension"
+
+    @property
+    def icon(self) -> str:
+        """Return the icon to use in the frontend."""
+        if self._get_suspension_data():
+            return "mdi:alert-circle"
+        return "mdi:minus-circle-outline"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         suspension = self._get_suspension_data()
         if suspension:
@@ -158,7 +173,8 @@ class SuspensionLocationTracker(ParkingMonitorEntity, TrackerEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self._get_suspension_data() is not None
+        # Available if coordinator is happy, even if no suspension
+        return self.coordinator.last_update_success or bool(self.coordinator.data)
 
     def _get_suspension_data(self) -> dict | None:
         """Get suspension data for this index."""

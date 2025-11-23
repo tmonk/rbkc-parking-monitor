@@ -12,18 +12,14 @@ views:
             title: Car Location
             show_header_toggle: false
             entities:
-              - entity: device_tracker.parking_monitor_car
-                name: Current Location
-                icon: mdi:car-connected
-              - type: divider
               - entity: input_text.rbkc_parking_location
-                name: Update Location (auto-saves)
-                icon: mdi:car-estate
+                name: Car Location (auto-saves)
+                icon: mdi:car-connected
 
           # Main Alert Card - Active Danger
           - type: conditional
             conditions:
-              - entity: binary_sensor.car_in_suspended_bay
+              - entity: binary_sensor.rbkc_parking_monitor_car_in_suspended_bay
                 state: 'on'
             card:
               type: markdown
@@ -34,21 +30,21 @@ views:
                 <p style="margin:0 0 20px 0;text-align:center;opacity:0.9;font-size:0.95em;">Active suspension at your location</p>
 
                 <h3 style="margin:16px 0 8px 0;font-size:1.2em;">📍 Location</h3>
-                <p style="margin:0 0 16px 0;font-size:1.1em;font-weight:bold;">{{ state_attr('device_tracker.parking_monitor_car', 'location_name') }}</p>
+                <p style="margin:0 0 16px 0;font-size:1.1em;font-weight:bold;">{{ state_attr('device_tracker.rbkc_parking_monitor_car', 'location_name') }}</p>
 
                 <h3 style="margin:16px 0 8px 0;font-size:1.2em;">⚠️ Active Suspensions</h3>
-                <p style="margin:0;font-size:1em;line-height:1.6;">{{ state_attr('binary_sensor.car_in_suspended_bay', 'active_suspensions') }}</p>
+                <p style="margin:0;font-size:1em;line-height:1.6;">{{ state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'active_suspensions') }}</p>
 
                 </div>
 
           # Upcoming Warning Card
           - type: conditional
             conditions:
-              - entity: binary_sensor.car_in_suspended_bay
+              - entity: binary_sensor.rbkc_parking_monitor_car_in_suspended_bay
                 state: 'off'
-              - entity: binary_sensor.car_in_suspended_bay
+              - entity: binary_sensor.rbkc_parking_monitor_car_in_suspended_bay
                 attribute: upcoming_risk
-                state: true
+                state_not: false
             card:
               type: markdown
               content: |
@@ -58,16 +54,16 @@ views:
 
                 <p style="margin:0;font-size:1em;line-height:1.6;">Suspensions starting in the next 7 days:</p>
 
-                <p style="margin:12px 0 0 0;font-size:1em;line-height:1.6;">{{ state_attr('binary_sensor.car_in_suspended_bay', 'upcoming_suspensions') }}</p>
+                <p style="margin:12px 0 0 0;font-size:1em;line-height:1.6;">{{ state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'upcoming_suspensions') }}</p>
 
                 </div>
 
           # All Clear Card
           - type: conditional
             conditions:
-              - entity: binary_sensor.car_in_suspended_bay
+              - entity: binary_sensor.rbkc_parking_monitor_car_in_suspended_bay
                 state: 'off'
-              - entity: binary_sensor.car_in_suspended_bay
+              - entity: binary_sensor.rbkc_parking_monitor_car_in_suspended_bay
                 attribute: upcoming_risk
                 state: false
             card:
@@ -88,20 +84,22 @@ views:
         default_zoom: 16
         dark_mode: auto
         entities:
-          - entity: device_tracker.parking_monitor_car
+          - entity: device_tracker.rbkc_parking_monitor_car
             name: My Car
             color: blue
-          - entity: device_tracker.sus_active_0
-          - entity: device_tracker.sus_active_1
-          - entity: device_tracker.sus_active_2
-          - entity: device_tracker.sus_active_3
-          - entity: device_tracker.sus_active_4
+          - entity: device_tracker.rbkc_parking_monitor_suspension_1
+          - entity: device_tracker.rbkc_parking_monitor_suspension_2
+          - entity: device_tracker.rbkc_parking_monitor_suspension_3
+          - entity: device_tracker.rbkc_parking_monitor_suspension_4
+          - entity: device_tracker.rbkc_parking_monitor_suspension_5
 
       # All Suspensions List
       - type: markdown
         title: 📋 All Suspensions
+        entity_id:
+          - binary_sensor.rbkc_parking_monitor_car_in_suspended_bay
         content: |
-          {% set status = state_attr('binary_sensor.car_in_suspended_bay', 'last_status') %}
+          {% set status = state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'last_status') %}
 
           {% if status == 'Cache Empty' %}
 
@@ -120,18 +118,30 @@ views:
 
           <h3 style="margin:16px 0 12px 0;font-size:1.2em;">🔴 Active Today</h3>
 
-          {{ state_attr('binary_sensor.car_in_suspended_bay', 'all_active_suspensions') }}
+          {% set active = state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'all_active_suspensions') | default([], true) %}
+          {% if active and active|length > 0 %}
+            {{ active | join('<br>') }}
+          {% else %}
+            None
+          {% endif %}
 
           <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
 
           <h3 style="margin:16px 0 12px 0;font-size:1.2em;">🔵 Future Suspensions</h3>
 
-          {{ state_attr('binary_sensor.car_in_suspended_bay', 'all_upcoming_suspensions') }}
+          {% set upcoming = state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'all_upcoming_suspensions') | default([], true) %}
+          {% if upcoming and upcoming|length > 0 %}
+            {{ upcoming | join('<br>') }}
+          {% else %}
+            None
+          {% endif %}
 
           <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
 
           <p style="text-align:center;color:#aaa;font-size:8px;margin:8px 0 0 0;padding:0;">
-          📧 Email Data From: {{ state_attr('binary_sensor.car_in_suspended_bay', 'email_data_date') or 'Unknown' }} • 🔄 Last Checked: {{ state_attr('binary_sensor.car_in_suspended_bay', 'last_checked') or 'Never' }}
+          {% set email_date = state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'email_data_date') | default('Unknown') %}
+          {% set last_checked = state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'last_checked') | default('Never') %}
+          📧 Email Data From: {{ email_date }} • 🔄 Last Checked: {{ last_checked }}
           </p>
 
           <p style="text-align:center;color:#aaa;font-size:0.85em;margin:16px 0 0 0;">

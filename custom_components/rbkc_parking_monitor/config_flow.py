@@ -105,7 +105,7 @@ class RBKCParkingOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
+        self._config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -120,24 +120,28 @@ class RBKCParkingOptionsFlow(config_entries.OptionsFlow):
             else:
                 # Update config entry data
                 self.hass.config_entries.async_update_entry(
-                    self.config_entry,
+                    self._config_entry,
                     data=user_input,
                 )
 
-                # Trigger coordinator to update with new config
-                from .const import DOMAIN
-                coordinator = self.hass.data[DOMAIN][self.config_entry.entry_id]
-                await coordinator.async_update_config(
-                    car_location=user_input[CONF_CAR_LOCATION],
-                    proximity_threshold=user_input[CONF_PROXIMITY_THRESHOLD],
-                    upcoming_window_days=user_input[CONF_UPCOMING_WINDOW_DAYS],
-                    debug_mode=user_input[CONF_DEBUG_MODE],
-                )
+                # Trigger coordinator to update with new config when available.
+                coordinator = self.hass.data.get(DOMAIN, {}).get(self._config_entry.entry_id)
+                if coordinator:
+                    await coordinator.async_update_config(
+                        car_location=user_input[CONF_CAR_LOCATION],
+                        proximity_threshold=user_input[CONF_PROXIMITY_THRESHOLD],
+                        upcoming_window_days=user_input[CONF_UPCOMING_WINDOW_DAYS],
+                        debug_mode=user_input[CONF_DEBUG_MODE],
+                    )
+                    await coordinator.async_manual_check()
+                else:
+                    # If not loaded yet, reload entry so new data takes effect.
+                    await self.hass.config_entries.async_reload(self._config_entry.entry_id)
 
                 return self.async_create_entry(title="", data={})
 
         # Get current values
-        current_data = self.config_entry.data
+        current_data = self._config_entry.data
 
         data_schema = vol.Schema(
             {

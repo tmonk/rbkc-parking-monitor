@@ -64,6 +64,8 @@ class ParkingApiClient:
             except Exception as err:
                 _LOGGER.warning("Failed to load geocoding cache: %s", err)
                 self._geo_cache = {}
+        else:
+            _LOGGER.debug("Geocoding cache file not found at %s", geo_cache_path)
 
     async def async_save_geo_cache(self) -> None:
         """Save geocoding cache to disk."""
@@ -96,6 +98,7 @@ class ParkingApiClient:
         """Load cached email body and timestamp."""
         cache_path = self._config_dir / CACHE_FILE
         if not cache_path.exists():
+            _LOGGER.info("Email cache file not found at %s", cache_path)
             return None, None
 
         try:
@@ -103,9 +106,11 @@ class ParkingApiClient:
                 cache_path.read_text
             )
             if len(email_body) < 10:
+                _LOGGER.info("Email cache too short (%d chars), ignoring", len(email_body))
                 return None, None
 
             timestamp = self._extract_email_timestamp(email_body)
+            _LOGGER.info("Loaded email cache (%d chars), timestamp=%s", len(email_body), timestamp)
             return email_body, timestamp
         except Exception as err:
             _LOGGER.error("Failed to load email cache: %s", err)
@@ -207,7 +212,7 @@ class ParkingApiClient:
             "all_upcoming_suspensions": [],
             "map_data": [],
             "status": "OK",
-            "email_timestamp": "No email received yet",
+            "email_timestamp": "Unknown",
             "last_checked": datetime.now().strftime("%d %b %Y, %H:%M"),
             "car_coords": None,
         }
@@ -217,11 +222,23 @@ class ParkingApiClient:
 
         # Handle email body
         if email_body and len(email_body) > 10:
+            _LOGGER.debug("Using provided email body (%d chars)", len(email_body))
             result["email_timestamp"] = await self.async_save_email(email_body)
         else:
             email_body, cached_timestamp = await self.async_load_cached_email()
             if cached_timestamp:
                 result["email_timestamp"] = cached_timestamp
+            _LOGGER.debug(
+                "Using cached email: found=%s timestamp=%s",
+                bool(email_body),
+                cached_timestamp,
+            )
+        _LOGGER.info(
+            "Email body loaded: present=%s length=%s timestamp=%s",
+            bool(email_body),
+            len(email_body) if email_body else 0,
+            result.get("email_timestamp"),
+        )
 
         # Validate inputs
         if not email_body:
@@ -231,6 +248,12 @@ class ParkingApiClient:
             ]
             result["all_upcoming_suspensions"] = result["all_active_suspensions"]
             return result
+
+        # Ensure timestamps always populated
+        if not result.get("email_timestamp"):
+            result["email_timestamp"] = "Unknown"
+        if not result.get("last_checked"):
+            result["last_checked"] = datetime.now().strftime("%d %b %Y, %H:%M")
 
         if not self._car_location:
             result["status"] = "No Location"
@@ -244,7 +267,19 @@ class ParkingApiClient:
             _LOGGER.error("Error processing suspensions: %s", err)
             result["status"] = f"Script Crash: {err}"
 
-        _LOGGER.info("Parking check complete. Status: %s", result["status"])
+        _LOGGER.info(
+            "Parking check complete. Status: %s | active=%d upcoming=%d my_active=%d my_upcoming=%d",
+            result["status"],
+            len(result.get("all_active_suspensions", [])),
+            len(result.get("all_upcoming_suspensions", [])),
+            len(result.get("my_active_suspensions", [])),
+            len(result.get("my_upcoming_suspensions", [])),
+        )
+        _LOGGER.debug(
+            "Active list: %s | Upcoming list: %s",
+            result.get("all_active_suspensions"),
+            result.get("all_upcoming_suspensions"),
+        )
         return result
 
     async def _process_suspensions(

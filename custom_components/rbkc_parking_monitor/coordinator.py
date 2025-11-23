@@ -37,6 +37,8 @@ class ParkingDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> None:
         """Initialize the coordinator."""
         self.config_entry = entry
+        # Avoid None data so state_attr calls don't return "None".
+        self.data = {}
         # Cache car location separately so entities can read the latest value
         # even before HA reloads the config entry object.
         self.car_location = entry.data[CONF_CAR_LOCATION]
@@ -53,6 +55,7 @@ class ParkingDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(hours=UPDATE_INTERVAL_HOURS),
+            config_entry=entry,
         )
 
     async def _async_update_data(self) -> dict[str, Any]:

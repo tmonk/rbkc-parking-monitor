@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
+from homeassistant.const import Platform, EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
@@ -43,8 +43,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Create coordinator
     coordinator = ParkingDataUpdateCoordinator(hass, entry)
 
-    # Fetch initial data
+    # Fetch initial data (and ensure cached email populates entities)
     await coordinator.async_config_entry_first_refresh()
+    # Kick a cached/manual check; run as a task so setup isn’t blocked if geocoding is slow.
+    async def _initial_cache_refresh() -> None:
+        _LOGGER.debug("Starting initial cached parking check after setup")
+        try:
+            await coordinator.async_manual_check()
+        except Exception as err:  # pragma: no cover - defensive
+            _LOGGER.warning("Initial cached parking check failed: %s", err)
+        else:
+            _LOGGER.debug("Initial cached parking check completed")
+
+    hass.async_create_task(_initial_cache_refresh())
 
     # Store coordinator
     hass.data.setdefault(DOMAIN, {})
@@ -60,29 +71,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if email_body:
             _LOGGER.info("Received IMAP event, processing email")
             await coordinator.async_process_email(email_body)
-
-            # Send notification if car at risk
-            if coordinator.data.get("car_at_risk_now"):
-                await hass.services.async_call(
-                    "notify",
-                    "notify",
-                    {
-                        "title": "🚨 MOVE CAR NOW",
-                        "message": f"Active suspension at {entry.data[CONF_CAR_LOCATION]}! \n\n"
-                        + "\n".join(coordinator.data.get("my_active_suspensions", [])),
-                        "data": {"color": "#FF0000"},
-                    },
-                )
-            elif coordinator.data.get("car_at_risk_soon"):
-                await hass.services.async_call(
-                    "notify",
-                    "notify",
-                    {
-                        "title": "⚠️ Upcoming Suspension",
-                        "message": f"Plan ahead! Suspension starts this week at {entry.data[CONF_CAR_LOCATION]}. \n\n"
-                        + "\n".join(coordinator.data.get("my_upcoming_suspensions", [])),
-                    },
-                )
 
     entry.async_on_unload(hass.bus.async_listen(IMAP_EVENT, handle_imap_event))
 
@@ -106,22 +94,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.warning("Car location is empty; ignoring update request")
             return
 
-        entry_id = call.data.get("entry_id")
+        requested_entry_id = call.data.get("entry_id")
         coordinator_map: dict[str, ParkingDataUpdateCoordinator] = hass.data.get(DOMAIN, {})
 
+        # Prefer the requested entry id, then this entry, then any available.
         coordinator: ParkingDataUpdateCoordinator | None = None
-        if entry_id:
-            coordinator = coordinator_map.get(entry_id)
-        else:
-            coordinator = next(iter(coordinator_map.values()), None)
+        if requested_entry_id:
+            coordinator = coordinator_map.get(requested_entry_id)
+
+        if coordinator is None:
+            coordinator = coordinator_map.get(entry.entry_id)
+
+        if coordinator is None and coordinator_map:
+            coordinator = next(iter(coordinator_map.values()))
 
         if not coordinator:
             _LOGGER.warning(
-                "No coordinator found for set_car_location (entry_id=%s)", entry_id
+                "No coordinator found for set_car_location (entry_id=%s)", requested_entry_id
             )
             return
 
+        _LOGGER.debug(
+            "set_car_location: updating entry_id=%s new_location='%s'",
+            coordinator.config_entry.entry_id,
+            new_location,
+        )
         await coordinator.async_update_config(car_location=new_location)
+        # Refresh data using cached email so entities reflect the new location immediately.
+        await coordinator.async_manual_check()
         _LOGGER.info("Updated car location to '%s' via set_car_location service", new_location)
 
     hass.services.async_register(
@@ -129,6 +129,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "set_car_location",
         async_set_car_location,
         schema=SET_CAR_LOCATION_SCHEMA,
+    )
+
+    # Reload suspension data from cached email once HA is fully started
+    async def _reload_from_cache(_: ServiceCall | None = None) -> None:
+        try:
+            await coordinator.async_manual_check()
+            _LOGGER.debug("Reloaded suspension data from cache on startup")
+        except Exception as err:  # pragma: no cover - defensive
+            _LOGGER.warning("Failed to reload cached suspension data: %s", err)
+
+    entry.async_on_unload(
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _reload_from_cache)
     )
 
     # Set up reload listener

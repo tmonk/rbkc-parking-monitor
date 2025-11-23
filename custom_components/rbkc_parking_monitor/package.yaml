@@ -16,6 +16,7 @@ input_text:
     icon: mdi:car-estate
     max: 80
 
+
 automation:
   - id: rbkc_parking_monitor_sync_car_location
     alias: RBKC Parking Monitor - Sync Car Location
@@ -34,14 +35,94 @@ automation:
       - platform: homeassistant
         event: start
       - platform: state
-        entity_id: device_tracker.parking_monitor_car
+        entity_id: device_tracker.rbkc_parking_monitor_car
     condition:
       - condition: template
         value_template: >-
-          {{ state_attr('device_tracker.parking_monitor_car', 'location_name') not in [none, '', 'unknown', 'unavailable'] }}
+          {{ state_attr('device_tracker.rbkc_parking_monitor_car', 'location_name') not in [none, '', 'unknown', 'unavailable'] }}
     action:
       - service: input_text.set_value
         target:
           entity_id: input_text.rbkc_parking_location
         data:
-          value: "{{ state_attr('device_tracker.parking_monitor_car', 'location_name') }}"
+          value: "{{ state_attr('device_tracker.rbkc_parking_monitor_car', 'location_name') }}"
+
+  - id: rbkc_parking_monitor_alert_active
+    alias: RBKC Parking Monitor - Active Suspension Alert
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.rbkc_parking_monitor_car_in_suspended_bay
+        to: 'on'
+    action:
+      - service: notify.notify
+        data:
+          title: "🚨 MOVE CAR IMMEDIATELY"
+          message: >-
+            Active suspension at your location: {{ state_attr('device_tracker.rbkc_parking_monitor_car', 'location_name') }}
+            
+            Suspensions:
+            {{ state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'active_suspensions') | join('\n') }}
+          data:
+            color: "#ff0000"
+
+  - id: rbkc_parking_monitor_alert_upcoming
+    alias: RBKC Parking Monitor - Upcoming Suspension Alert
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.rbkc_parking_monitor_car_in_suspended_bay
+        attribute: upcoming_risk
+        to: true
+    action:
+      - service: notify.notify
+        data:
+          title: "⚠️ Upcoming Parking Suspension"
+          message: >-
+            A suspension is scheduled at your location soon: {{ state_attr('device_tracker.rbkc_parking_monitor_car', 'location_name') }}
+
+            Suspensions:
+            {{ state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'upcoming_suspensions') | join('\n') }}
+
+
+
+# Template sensors to surface suspension lists/timestamps as stable states
+template:
+  - trigger:
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: binary_sensor.rbkc_parking_monitor_car_in_suspended_bay
+      - platform: time_pattern
+        minutes: "/1"
+    sensor:
+      - name: RBKC Parking Active Suspensions
+        unique_id: rbkc_parking_active_suspensions
+        availability: true
+        state: >
+          {% set items = state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'all_active_suspensions') | default([], true) %}
+          {% if items %}
+            {{ items | join('\n') }}
+          {% else %}
+            None
+          {% endif %}
+      - name: RBKC Parking Upcoming Suspensions
+        unique_id: rbkc_parking_upcoming_suspensions
+        availability: true
+        state: >
+          {% set items = state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'all_upcoming_suspensions') | default([], true) %}
+          {% if items %}
+            {{ items | join('\n') }}
+          {% else %}
+            None
+          {% endif %}
+      - name: RBKC Parking Email Date
+        unique_id: rbkc_parking_email_date
+        availability: true
+        state: >
+          {{ state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'email_data_date') or 'Unknown' }}
+      - name: RBKC Parking Last Checked
+        unique_id: rbkc_parking_last_checked
+        availability: true
+        state: >
+          {{ state_attr('binary_sensor.rbkc_parking_monitor_car_in_suspended_bay', 'last_checked') or 'Never' }}
