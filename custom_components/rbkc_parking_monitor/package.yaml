@@ -1,0 +1,11 @@
+# RBKC Parking Monitor Package
+# Include this in your configuration.yaml packages to get the dashboard automatically
+
+lovelace:
+  dashboards:
+    parking-monitor:
+      mode: yaml
+      title: Parking Monitor
+      icon: mdi:car
+      show_in_sidebar: true
+      filename: custom_components/rbkc_parking_monitor/dashboard.yaml

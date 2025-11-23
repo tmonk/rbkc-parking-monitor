@@ -91,11 +91,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         schema=CHECK_PARKING_SCHEMA,
     )
 
-    # Register dashboard
-    await async_register_dashboard(hass)
-
     # Set up reload listener
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+
+    # Automatically create dashboard in storage
+    await async_create_dashboard(hass)
 
     return True
 
@@ -124,58 +124,79 @@ async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await async_setup_entry(hass, entry)
 
 
-async def async_register_dashboard(hass: HomeAssistant) -> None:
-    """Register the parking monitor dashboard."""
+async def async_create_dashboard(hass: HomeAssistant) -> None:
+    """Add package reference to configuration.yaml."""
     try:
-        from homeassistant.components import lovelace
         import yaml
+        from ruamel.yaml import YAML
 
-        # Dashboard file path
-        dashboard_file = Path(__file__).parent / "dashboard.yaml"
+        config_path = Path(hass.config.config_dir) / "configuration.yaml"
+        package_line = "rbkc_parking: !include custom_components/rbkc_parking_monitor/package.yaml"
 
-        if not dashboard_file.exists():
-            _LOGGER.warning("Dashboard file not found: %s", dashboard_file)
+        if not config_path.exists():
+            _LOGGER.warning("configuration.yaml not found")
             return
 
-        # Read and parse dashboard YAML
-        dashboard_yaml = await hass.async_add_executor_job(dashboard_file.read_text)
-        dashboard_config = yaml.safe_load(dashboard_yaml)
+        # Read current configuration
+        config_content = await hass.async_add_executor_job(config_path.read_text)
 
-        # Dashboard URL path
-        url_path = "rbkc-parking-monitor"
+        # Check if already added
+        if "rbkc_parking_monitor/package.yaml" in config_content:
+            _LOGGER.debug("Package already referenced in configuration.yaml")
+            return
 
-        # Create the dashboard using lovelace's public API
-        try:
-            await lovelace.async_create_dashboard(
-                hass=hass,
-                url_path=url_path,
-                require_admin=False,
-                config={
-                    "mode": "storage",
-                    "title": "Parking Monitor",
-                    "icon": "mdi:car",
-                    "show_in_sidebar": True,
-                },
+        # Parse YAML with ruamel to preserve formatting
+        yaml_parser = YAML()
+        yaml_parser.preserve_quotes = True
+        yaml_parser.default_flow_style = False
+
+        config_data = yaml_parser.load(config_content)
+
+        # Ensure homeassistant section exists
+        if "homeassistant" not in config_data:
+            config_data["homeassistant"] = {}
+
+        # Ensure packages exists
+        if "packages" not in config_data["homeassistant"]:
+            config_data["homeassistant"]["packages"] = {}
+
+        # Add our package reference
+        if "rbkc_parking" not in config_data["homeassistant"]["packages"]:
+            # This will be rendered as the include directive
+            config_data["homeassistant"]["packages"]["rbkc_parking"] = (
+                "!include custom_components/rbkc_parking_monitor/package.yaml"
             )
 
-            # Wait a moment for the dashboard to be created
-            await hass.async_add_executor_job(lambda: None)
+            # Write back to file
+            backup_path = config_path.with_suffix(".yaml.backup")
+            await hass.async_add_executor_job(
+                lambda: config_path.rename(backup_path)
+            )
 
-            # Get the dashboard instance and populate it with our config
-            if lovelace.DOMAIN in hass.data:
-                lovelace_config = hass.data[lovelace.DOMAIN]
-                if "dashboards" in lovelace_config and url_path in lovelace_config["dashboards"]:
-                    dashboard_obj = lovelace_config["dashboards"][url_path]
-                    await dashboard_obj.async_save(dashboard_config)
-                    _LOGGER.info("Parking Monitor dashboard created successfully")
-                else:
-                    _LOGGER.warning("Dashboard created but not found in lovelace data")
-            else:
-                _LOGGER.warning("Lovelace component not loaded")
+            with open(config_path, "w") as f:
+                yaml_parser.dump(config_data, f)
 
-        except Exception as create_err:
-            _LOGGER.debug("Dashboard may already exist or creation failed: %s", create_err)
+            _LOGGER.info(
+                "Added package reference to configuration.yaml. "
+                "Backup saved to %s. Restart required.",
+                backup_path
+            )
 
+            # Create persistent notification
+            hass.components.persistent_notification.async_create(
+                "RBKC Parking Monitor has added the dashboard configuration to your "
+                "configuration.yaml. **Please restart Home Assistant** to see the dashboard "
+                "in your sidebar.\n\nA backup of your configuration was saved to "
+                f"`configuration.yaml.backup`.",
+                title="RBKC Parking Monitor - Restart Required",
+                notification_id=f"{DOMAIN}_dashboard_added",
+            )
+
+    except ImportError:
+        _LOGGER.error(
+            "ruamel.yaml not available. Cannot automatically modify configuration.yaml. "
+            "Please manually add the package reference."
+        )
     except Exception as err:
-        _LOGGER.error("Failed to register dashboard: %s", err)
-        _LOGGER.debug("Dashboard error details", exc_info=True)
+        _LOGGER.error("Failed to modify configuration.yaml: %s", err)
+        _LOGGER.debug("Configuration modification error", exc_info=True)

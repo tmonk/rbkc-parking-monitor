@@ -103,19 +103,21 @@ automation:
 
 ### Dashboard
 
-A dashboard is **automatically registered** when you install the integration.
+The integration **automatically adds** the dashboard to your `configuration.yaml` when installed!
 
-After installation, look for **"Parking Monitor"** (car icon) in your sidebar. The dashboard includes:
+When you install the integration, it will:
+1. ✅ Add a package reference to your `configuration.yaml`
+2. ✅ Create a backup at `configuration.yaml.backup`
+3. ✅ Show a notification to restart Home Assistant
 
+After restarting, the **"Parking Monitor"** dashboard appears in your sidebar with a car icon.
+
+**Dashboard Features:**
 - **Status Cards**: Visual alerts for active/upcoming suspensions
 - **Interactive Map**: Shows your car and nearby suspension locations
 - **Suspension List**: All active and upcoming suspensions borough-wide
-- **Configuration Link**: Quick access to update your car location
 
-If the dashboard doesn't appear in the sidebar after installation:
-1. Restart Home Assistant
-2. Check Settings → Devices & Services → RBKC Parking Monitor
-3. Check Home Assistant logs for dashboard registration errors
+**Note:** The integration safely modifies your configuration.yaml using ruamel.yaml to preserve formatting and comments. A backup is always created before making changes.
 
 ### Notifications
 

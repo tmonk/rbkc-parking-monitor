@@ -59,5 +59,11 @@
         }
       }
     }
+  },
+  "issues": {
+    "dashboard_not_configured": {
+      "title": "Dashboard Not Configured",
+      "description": "The RBKC Parking Monitor dashboard is not configured. Add one of these options to your `configuration.yaml` and restart:\n\n**Option 1 - Using Packages (Easiest):**\n```yaml\n{package_config}\n```\n\n**Option 2 - Direct Configuration:**\n```yaml\n{direct_config}\n```\n\nAfter adding either option, restart Home Assistant to see the dashboard in your sidebar."
+    }
   }
 }
