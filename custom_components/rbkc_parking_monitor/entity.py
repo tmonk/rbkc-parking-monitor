@@ -21,5 +21,5 @@ class ParkingMonitorEntity(CoordinatorEntity[ParkingDataUpdateCoordinator]):
             name="RBKC Parking Monitor",
             manufacturer="RBKC Parking Monitor",
             model="Suspension Monitor",
-            sw_version="1.0.0",
+            sw_version="1",
         )
