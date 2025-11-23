@@ -10,7 +10,7 @@ views:
         cards:
           # Car Location Display
           - type: tile
-            entity: device_tracker.parking_monitor_car
+            entity: input_text.rbkc_parking_location
             name: Car Location
             icon: mdi:car-connected
             color: blue

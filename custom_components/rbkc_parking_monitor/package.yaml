@@ -27,3 +27,21 @@ automation:
       - service: rbkc_parking_monitor.set_car_location
         data:
           car_location: "{{ trigger.to_state.state }}"
+  - id: rbkc_parking_monitor_mirror_tracker_to_helper
+    alias: RBKC Parking Monitor - Mirror Tracker to Helper
+    mode: restart
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: device_tracker.parking_monitor_car
+        attribute: location_name
+    condition:
+      - condition: template
+        value_template: "{{ state_attr('device_tracker.parking_monitor_car', 'location_name') not in [none, ''] }}"
+    action:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.rbkc_parking_location
+        data:
+          value: "{{ state_attr('device_tracker.parking_monitor_car', 'location_name') }}"
