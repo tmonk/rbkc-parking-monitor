@@ -164,13 +164,17 @@ async def async_create_dashboard(hass: HomeAssistant) -> None:
             # Create packages dict
             ha_config["packages"] = {}
         elif not isinstance(ha_config["packages"], dict):
-            # packages is a tag (like !include_dir_named), we can't modify it automatically
-            _LOGGER.warning(
+            # packages is a tag (like !include_dir_named), we need to restructure it
+            _LOGGER.info(
                 "configuration.yaml uses packages with !include directive. "
-                "Cannot automatically add dashboard. Please manually add: "
-                "rbkc_parking: !include custom_components/rbkc_parking_monitor/package.yaml"
+                "Restructuring to add our package while preserving existing includes."
             )
-            return
+            # Store the existing include directive
+            existing_packages = ha_config["packages"]
+            # Convert to a dict with both our package and their existing includes
+            ha_config["packages"] = {
+                "existing_packages": existing_packages
+            }
 
         # Add our package reference if not already there
         if "rbkc_parking" not in ha_config["packages"]:
