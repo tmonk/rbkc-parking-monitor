@@ -4,7 +4,6 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -277,17 +276,24 @@ async def async_create_dashboard(hass: HomeAssistant) -> None:
             )
             return
 
-        await persistent_notification.async_create(
-            hass,
+        message = (
             "RBKC Parking Monitor has added the dashboard configuration to your "
             "configuration.yaml. **Please restart Home Assistant** to see the dashboard "
             "in your sidebar.\n\n"
             + (
                 backup_note
                 or "No backup of configuration.yaml was needed for this change."
-            ),
-            title="RBKC Parking Monitor - Restart Required",
-            notification_id=f"{DOMAIN}_dashboard_added",
+            )
+        )
+
+        await hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "message": message,
+                "title": "RBKC Parking Monitor - Restart Required",
+                "notification_id": f"{DOMAIN}_dashboard_added",
+            },
         )
 
     except ImportError:
