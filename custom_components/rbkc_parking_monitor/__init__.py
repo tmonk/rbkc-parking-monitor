@@ -125,65 +125,57 @@ async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def async_register_dashboard(hass: HomeAssistant) -> None:
-    """Register the parking monitor dashboard as a panel."""
+    """Register the parking monitor dashboard."""
     try:
-        # Dashboard content to inject
+        from homeassistant.components import lovelace
+        import yaml
+
+        # Dashboard file path
         dashboard_file = Path(__file__).parent / "dashboard.yaml"
 
         if not dashboard_file.exists():
             _LOGGER.warning("Dashboard file not found: %s", dashboard_file)
             return
 
-        # Read dashboard YAML
+        # Read and parse dashboard YAML
         dashboard_yaml = await hass.async_add_executor_job(dashboard_file.read_text)
+        dashboard_config = yaml.safe_load(dashboard_yaml)
 
-        # Parse YAML to extract views
-        import yaml
-        dashboard_data = yaml.safe_load(dashboard_yaml)
+        # Dashboard URL path
+        url_path = "rbkc-parking-monitor"
 
-        # Register as a lovelace panel with custom config
-        hass.components.frontend.async_register_built_in_panel(
-            component_name="lovelace",
-            sidebar_title="Parking Monitor",
-            sidebar_icon="mdi:car",
-            frontend_url_path=f"{DOMAIN}_dashboard",
-            config={
-                "mode": "storage",
-            },
-            require_admin=False,
-        )
+        # Create the dashboard using lovelace's public API
+        try:
+            await lovelace.async_create_dashboard(
+                hass=hass,
+                url_path=url_path,
+                require_admin=False,
+                config={
+                    "mode": "storage",
+                    "title": "Parking Monitor",
+                    "icon": "mdi:car",
+                    "show_in_sidebar": True,
+                },
+            )
 
-        # Initialize lovelace config for this panel
-        from homeassistant.components.lovelace import dashboard as dash_module
+            # Wait a moment for the dashboard to be created
+            await hass.async_add_executor_job(lambda: None)
 
-        panel_url = f"{DOMAIN}_dashboard"
-
-        # Create the dashboard configuration
-        await dash_module.async_create_dashboard(
-            hass=hass,
-            url_path=panel_url,
-            config={
-                "mode": "storage",
-                "title": "Parking Monitor",
-                "icon": "mdi:car",
-                "show_in_sidebar": True,
-                "require_admin": False,
-            },
-        )
-
-        # Get the dashboard instance and save config
-        if "lovelace" in hass.data and "dashboards" in hass.data["lovelace"]:
-            dashboards = hass.data["lovelace"]["dashboards"]
-            if panel_url in dashboards:
-                dashboard_instance = dashboards[panel_url]
-                # Save the views to the dashboard
-                await dashboard_instance.async_save(dashboard_data)
-                _LOGGER.info("Parking Monitor dashboard registered successfully")
+            # Get the dashboard instance and populate it with our config
+            if lovelace.DOMAIN in hass.data:
+                lovelace_config = hass.data[lovelace.DOMAIN]
+                if "dashboards" in lovelace_config and url_path in lovelace_config["dashboards"]:
+                    dashboard_obj = lovelace_config["dashboards"][url_path]
+                    await dashboard_obj.async_save(dashboard_config)
+                    _LOGGER.info("Parking Monitor dashboard created successfully")
+                else:
+                    _LOGGER.warning("Dashboard created but not found in lovelace data")
             else:
-                _LOGGER.warning("Dashboard instance not found after creation")
-        else:
-            _LOGGER.warning("Lovelace not initialized, dashboard config not saved")
+                _LOGGER.warning("Lovelace component not loaded")
+
+        except Exception as create_err:
+            _LOGGER.debug("Dashboard may already exist or creation failed: %s", create_err)
 
     except Exception as err:
         _LOGGER.error("Failed to register dashboard: %s", err)
-        _LOGGER.debug("Dashboard registration error details", exc_info=True)
+        _LOGGER.debug("Dashboard error details", exc_info=True)
