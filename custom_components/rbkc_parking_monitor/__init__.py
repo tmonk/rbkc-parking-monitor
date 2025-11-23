@@ -148,7 +148,7 @@ async def async_create_dashboard(hass: HomeAssistant) -> None:
             return
 
         # Parse YAML with ruamel to preserve formatting
-        yaml_parser = YAML()
+        yaml_parser = await hass.async_add_executor_job(YAML)
         yaml_parser.preserve_quotes = True
         yaml_parser.default_flow_style = False
 
