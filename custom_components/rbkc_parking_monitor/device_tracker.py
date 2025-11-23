@@ -64,6 +64,11 @@ class CarLocationTracker(ParkingMonitorEntity, TrackerEntity):
         return self.coordinator.config_entry.data[CONF_CAR_LOCATION]
 
     @property
+    def state(self) -> str | None:
+        """Return a human-readable location instead of 'home/away'."""
+        return self.location_name or "unknown"
+
+    @property
     def available(self) -> bool:
         """Return if entity is available."""
         return self.coordinator.data.get("car_coords") is not None
