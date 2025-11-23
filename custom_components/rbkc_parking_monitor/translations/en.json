@@ -1,0 +1,63 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure RBKC Parking Monitor",
+        "description": "Set up your parking suspension monitor",
+        "data": {
+          "car_location": "Car Location (e.g., '42 Example Street')",
+          "proximity_threshold": "Proximity Threshold (meters)",
+          "upcoming_window_days": "Upcoming Window (days)",
+          "debug_mode": "Enable Debug Logging"
+        },
+        "data_description": {
+          "car_location": "Enter the street address where your car is currently parked",
+          "proximity_threshold": "Distance in meters to consider a suspension 'nearby' (default: 100m)",
+          "upcoming_window_days": "Number of days ahead to check for upcoming suspensions (default: 7)",
+          "debug_mode": "Enable verbose logging for troubleshooting"
+        }
+      }
+    },
+    "error": {
+      "car_location_required": "Car location cannot be empty"
+    },
+    "abort": {
+      "already_configured": "RBKC Parking Monitor is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update RBKC Parking Monitor Settings",
+        "description": "Modify your parking monitor configuration",
+        "data": {
+          "car_location": "Car Location",
+          "proximity_threshold": "Proximity Threshold (meters)",
+          "upcoming_window_days": "Upcoming Window (days)",
+          "debug_mode": "Enable Debug Logging"
+        },
+        "data_description": {
+          "car_location": "Update where your car is currently parked",
+          "proximity_threshold": "Distance in meters to consider a suspension 'nearby'",
+          "upcoming_window_days": "Number of days ahead to check for upcoming suspensions",
+          "debug_mode": "Enable verbose logging for troubleshooting"
+        }
+      }
+    },
+    "error": {
+      "car_location_required": "Car location cannot be empty"
+    }
+  },
+  "services": {
+    "check_parking": {
+      "name": "Check Parking",
+      "description": "Manually trigger a parking suspension check",
+      "fields": {
+        "email_body": {
+          "name": "Email Body",
+          "description": "Optional: Email body text to process. If not provided, uses cached email."
+        }
+      }
+    }
+  }
+}

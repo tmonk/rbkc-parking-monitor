@@ -1,0 +1,11 @@
+{
+  "domain": "rbkc_parking_monitor",
+  "name": "RBKC Parking Suspension Monitor",
+  "codeowners": ["@tmonk"],
+  "config_flow": true,
+  "documentation": "https://github.com/tmonk/rbkc-parking-monitor",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/tmonk/rbkc-parking-monitor/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

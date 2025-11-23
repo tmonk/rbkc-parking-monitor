@@ -27,9 +27,6 @@ Desktop.ini
 *~
 
 # Personal data (examples/testing)
-test_emails/
-*.txt
-*.json
 sync-ha.sh
 .github/scripts/sync-ha-core.sh
 .github/scripts/sync-ha-github.zsh
