@@ -5,25 +5,18 @@ views:
     theme: Backend-selected
     badges: []
     cards:
-      # Status Header
-      - type: vertical-stack
-        cards:
-          # Car Location Display
-          - type: tile
-            entity: input_text.rbkc_parking_location
-            name: Car Location
+      # Location header (display + edit in one card)
+      - type: entities
+        title: Car Location
+        show_header_toggle: false
+        entities:
+          - entity: device_tracker.parking_monitor_car
+            name: Current Location
             icon: mdi:car-connected
-            color: blue
-            tap_action:
-              action: more-info
-
-          # Edit Car Location
-          - type: entities
-            title: Update Car Location
-            show_header_toggle: false
-            entities:
-              - entity: input_text.rbkc_parking_location
-                name: Car Location (updates apply automatically)
+          - type: divider
+          - entity: input_text.rbkc_parking_location
+            name: Update Location (auto-saves)
+            icon: mdi:car-estate
 
           # Main Alert Card - Active Danger
           - type: conditional
