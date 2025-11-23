@@ -130,6 +130,7 @@ async def async_create_dashboard(hass: HomeAssistant) -> None:
     try:
         import yaml
         from ruamel.yaml import YAML
+        from ruamel.yaml.comments import CommentedMap, TaggedScalar
 
         config_path = Path(hass.config.config_dir) / "configuration.yaml"
         package_line = "rbkc_parking: !include custom_components/rbkc_parking_monitor/package.yaml"
@@ -157,36 +158,104 @@ async def async_create_dashboard(hass: HomeAssistant) -> None:
         if "homeassistant" not in config_data:
             config_data["homeassistant"] = {}
 
-        # Check packages configuration
         ha_config = config_data["homeassistant"]
 
-        # If packages doesn't exist or is not a dict (e.g., it's !include_dir_named)
-        if "packages" not in ha_config:
-            # Create packages dict
-            ha_config["packages"] = {}
-        elif not isinstance(ha_config["packages"], dict):
-            # packages is a tag (like !include_dir_named), we need to restructure it
-            _LOGGER.info(
-                "configuration.yaml uses packages with !include directive. "
-                "Restructuring to add our package while preserving existing includes."
+        packages_node = ha_config.get("packages")
+        backup_note = None
+
+        if packages_node is None:
+            ha_config["packages"] = CommentedMap()
+            packages_node = ha_config["packages"]
+
+        # Handle packages defined via include directives
+        if isinstance(packages_node, TaggedScalar):
+            include_tag = str(packages_node.tag)
+            include_target = str(packages_node)
+
+            if "include_dir" in include_tag:
+                packages_dir = Path(hass.config.config_dir) / include_target
+                packages_dir.mkdir(parents=True, exist_ok=True)
+                package_file = packages_dir / "rbkc_parking_monitor.yaml"
+
+                if package_file.exists():
+                    _LOGGER.debug(
+                        "Package file already exists in %s, skipping creation", packages_dir
+                    )
+                    return
+
+                await hass.async_add_executor_job(
+                    package_file.write_text,
+                    "!include custom_components/rbkc_parking_monitor/package.yaml\n",
+                )
+                _LOGGER.info(
+                    "Added package file to %s for RBKC Parking Monitor. Restart required.",
+                    packages_dir,
+                )
+                backup_note = (
+                    "No backup of configuration.yaml was needed; package file was created "
+                    f"in `{packages_dir.name}`."
+                )
+
+            else:
+                include_path = Path(hass.config.config_dir) / include_target
+
+                if not include_path.exists():
+                    _LOGGER.warning(
+                        "Packages file %s not found; cannot add RBKC Parking package.",
+                        include_path,
+                    )
+                    return
+
+                include_content = await hass.async_add_executor_job(
+                    include_path.read_text
+                )
+                include_data = yaml_parser.load(include_content) or CommentedMap()
+
+                if not isinstance(include_data, dict):
+                    _LOGGER.warning(
+                        "Packages include %s is not a mapping; cannot add RBKC Parking package.",
+                        include_path,
+                    )
+                    return
+
+                if "rbkc_parking" in include_data:
+                    _LOGGER.debug(
+                        "RBKC Parking package already present in %s", include_path
+                    )
+                    return
+
+                include_data["rbkc_parking"] = TaggedScalar(
+                    "custom_components/rbkc_parking_monitor/package.yaml",
+                    "!include",
+                )
+
+                include_backup = include_path.with_suffix(include_path.suffix + ".backup")
+                await hass.async_add_executor_job(
+                    lambda: include_path.rename(include_backup)
+                )
+
+                with open(include_path, "w") as f:
+                    yaml_parser.dump(include_data, f)
+
+                _LOGGER.info(
+                    "Added package reference to %s. Backup saved to %s. Restart required.",
+                    include_path,
+                    include_backup,
+                )
+                backup_note = (
+                    f"A backup of your packages include was saved to `{include_backup.name}`."
+                )
+
+        elif isinstance(packages_node, dict):
+            if "rbkc_parking" in packages_node:
+                _LOGGER.debug("RBKC Parking package already present in configuration.yaml")
+                return
+
+            packages_node["rbkc_parking"] = TaggedScalar(
+                "custom_components/rbkc_parking_monitor/package.yaml",
+                "!include",
             )
-            # Store the existing include directive
-            existing_packages = ha_config["packages"]
-            # Convert to a dict with both our package and their existing includes
-            ha_config["packages"] = {
-                "existing_packages": existing_packages
-            }
 
-        # Add our package reference if not already there
-        if "rbkc_parking" not in ha_config["packages"]:
-            from ruamel.yaml.scalarstring import PreservedScalarString
-
-            # Add the include reference
-            ha_config["packages"]["rbkc_parking"] = PreservedScalarString(
-                "!include custom_components/rbkc_parking_monitor/package.yaml"
-            )
-
-            # Write back to file
             backup_path = config_path.with_suffix(".yaml.backup")
             await hass.async_add_executor_job(
                 lambda: config_path.rename(backup_path)
@@ -200,17 +269,26 @@ async def async_create_dashboard(hass: HomeAssistant) -> None:
                 "Backup saved to %s. Restart required.",
                 backup_path
             )
-
-            # Create persistent notification
-            await persistent_notification.async_create(
-                hass,
-                "RBKC Parking Monitor has added the dashboard configuration to your "
-                "configuration.yaml. **Please restart Home Assistant** to see the dashboard "
-                "in your sidebar.\n\nA backup of your configuration was saved to "
-                f"`configuration.yaml.backup`.",
-                title="RBKC Parking Monitor - Restart Required",
-                notification_id=f"{DOMAIN}_dashboard_added",
+            backup_note = f"A backup of your configuration was saved to `{backup_path.name}`."
+        else:
+            _LOGGER.warning(
+                "Unsupported packages configuration type (%s); cannot add package automatically.",
+                type(packages_node),
             )
+            return
+
+        await persistent_notification.async_create(
+            hass,
+            "RBKC Parking Monitor has added the dashboard configuration to your "
+            "configuration.yaml. **Please restart Home Assistant** to see the dashboard "
+            "in your sidebar.\n\n"
+            + (
+                backup_note
+                or "No backup of configuration.yaml was needed for this change."
+            ),
+            title="RBKC Parking Monitor - Restart Required",
+            notification_id=f"{DOMAIN}_dashboard_added",
+        )
 
     except ImportError:
         _LOGGER.error(
