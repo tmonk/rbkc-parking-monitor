@@ -73,7 +73,3 @@ It extracts the street, location text, and start/end dates, then matches suspens
 - Email bodies cached locally at `/config/parking_email_cache.txt`
 - Geocoding via OpenStreetMap Nominatim; results cached at `/config/parking_geo_cache.json`
 - No data leaves your Home Assistant beyond those geocoding requests
-
-## License & Disclaimer
-
-MIT License (see `LICENSE`). Check local signage; this integration is advisory only.
