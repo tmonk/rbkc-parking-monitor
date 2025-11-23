@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -201,7 +202,8 @@ async def async_create_dashboard(hass: HomeAssistant) -> None:
             )
 
             # Create persistent notification
-            hass.components.persistent_notification.async_create(
+            await persistent_notification.async_create(
+                hass,
                 "RBKC Parking Monitor has added the dashboard configuration to your "
                 "configuration.yaml. **Please restart Home Assistant** to see the dashboard "
                 "in your sidebar.\n\nA backup of your configuration was saved to "
