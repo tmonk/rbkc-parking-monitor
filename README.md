@@ -1,75 +1,235 @@
 # RBKC Parking Suspension Monitor
 
-Home Assistant automation that reads RBKC suspension alert emails, geocodes your car location, and warns if you are in or near a suspended bay.
+Home Assistant custom integration that monitors RBKC parking suspension emails, geocodes your car location, and alerts you if you're parked in or near a suspended bay.
 
-## What you get (from `packages/parking_monitor.yaml`)
+## Features
 
-- Helpers: `input_text.car_current_street` (persisted; seeded to RBKC Town Hall on first start), `input_boolean.parking_debug_mode`
-- Binary sensor: `binary_sensor.car_in_suspended_bay` with active/upcoming attributes and status text
-- Automation: listens for `imap_content` events, daily at 08:00, startup, or when the car location changes; calls `pyscript.check_parking`; sends notifications via `notify.notify`
-- Dashboard: YAML Lovelace view at `dashboards/parking_dashboard.yaml` automatically exposed as “Parking Monitor”
-- Device trackers: `device_tracker.parking_monitor_car` plus up to 5 `sus_active_*` entities for mapping
+- **Binary Sensor**: `binary_sensor.car_in_suspended_bay` with detailed attributes
+- **Device Trackers**: Car location + up to 5 active suspension locations (for map display)
+- **Auto-notifications**: Alerts via `notify.notify` when suspensions affect your car
+- **IMAP Integration**: Automatically processes incoming suspension emails
+- **UI Configuration**: Set car location and preferences via Settings UI
+- **Dashboard**: Beautiful Lovelace dashboard with status cards and interactive map
 
 ## Requirements
 
-- Home Assistant 2025.x
-- PyScript (HACS)
-- IMAP integration pointed at your inbox
+- Home Assistant 2025.11.4 or newer
+- IMAP integration configured and pointing at your inbox
 - RBKC suspension email subscription
 
-## Install & Set Up
+## Installation
 
-1. Subscribe to RBKC suspension emails.
-2. Install PyScript via HACS → Integrations → install → restart.
-3. Add this repo in HACS (⋮ → Custom repositories) → category: Python Script → download.
-4. Ensure `configuration.yaml` has:
+### Via HACS (Recommended)
+
+1. **Add Custom Repository** (if not in HACS default):
+   - Open HACS in Home Assistant
+   - Click the three dots menu (⋮) → Custom repositories
+   - Add repository URL: `https://github.com/YOUR_GITHUB_USERNAME/rbkc-parking-monitor`
+   - Category: Integration
+   - Click Add
+
+2. **Install**:
+   - Search for "RBKC Parking Suspension Monitor" in HACS
+   - Click Download
+   - Restart Home Assistant
+
+### Manual Installation
+
+1. Copy the `custom_components/rbkc_parking_monitor` folder to your Home Assistant `custom_components` directory
+2. Restart Home Assistant
+
+## Configuration
+
+### 1. Set Up IMAP Integration
+
+Add the IMAP integration and configure it to monitor your inbox:
+
+- **Search**: `SUBJECT "Parking Suspensions Email Alert"`
+- This ensures only RBKC suspension emails trigger the integration
+
+### 2. Add Integration
+
+1. Go to **Settings** → **Devices & Services** → **Add Integration**
+2. Search for "RBKC Parking Suspension Monitor"
+3. Enter configuration:
+   - **Car Location**: Street address where your car is parked (e.g., "42 Example Street")
+   - **Proximity Threshold**: Distance in meters to consider a suspension "nearby" (default: 100m)
+   - **Upcoming Window**: Days ahead to check for future suspensions (default: 7 days)
+   - **Debug Mode**: Enable verbose logging (optional)
+
+### 3. Subscribe to RBKC Emails
+
+Sign up for RBKC parking suspension email alerts at [rbkc.gov.uk](https://www.rbkc.gov.uk).
+
+## Usage
+
+### Entities Created
+
+**Binary Sensor**: `binary_sensor.car_in_suspended_bay`
+- State: `on` if car is at risk now, `off` otherwise
+- Attributes:
+  - `active_suspensions`: Suspensions affecting your location right now
+  - `upcoming_suspensions`: Suspensions starting within your configured window
+  - `upcoming_risk`: Boolean indicating upcoming suspensions
+  - `all_active_suspensions`: List of all active suspensions (entire borough)
+  - `all_upcoming_suspensions`: List of all upcoming suspensions
+  - `last_status`: Status of last check
+  - `email_data_date`: Timestamp of email data
+  - `last_checked`: Last check timestamp
+
+**Device Trackers**:
+- `device_tracker.parking_monitor_car`: Your car's location
+- `device_tracker.suspension_1` through `suspension_5`: Active suspension locations (for map)
+
+### Service
+
+**`rbkc_parking_monitor.check_parking`**
+
+Manually trigger a parking check.
+
+Parameters:
+- `email_body` (optional): Email text to process. If omitted, uses cached data.
+
+Example automation:
+```yaml
+automation:
+  - alias: "Manual Parking Check Button"
+    trigger:
+      - platform: state
+        entity_id: input_button.check_parking_now
+    action:
+      - service: rbkc_parking_monitor.check_parking
+```
+
+### Dashboard
+
+A beautiful dashboard is **automatically registered** when you install the integration.
+
+After installation, look for **"Parking Monitor"** (car icon) in your sidebar. The dashboard includes:
+
+- **Status Cards**: Visual alerts for active/upcoming suspensions
+- **Interactive Map**: Shows your car and nearby suspension locations
+- **Suspension List**: All active and upcoming suspensions borough-wide
+- **Configuration Link**: Quick access to update your car location
+
+If the dashboard doesn't appear in the sidebar after installation:
+1. Restart Home Assistant
+2. Check Settings → Devices & Services → RBKC Parking Monitor
+3. Check Home Assistant logs for dashboard registration errors
+
+### Notifications
+
+The integration automatically sends notifications when:
+
+- **Active suspension**: "🚨 MOVE CAR NOW" (red notification)
+- **Upcoming suspension**: "⚠️ Upcoming Suspension" (warning)
+
+Notifications are sent via `notify.notify`. Update your notification service in the integration code if needed.
+
+### Changing Car Location
+
+Two ways to update your car location:
+
+1. **Via UI** (Recommended):
+   - Go to **Settings** → **Devices & Services** → **RBKC Parking Monitor** → **Configure**
+   - Update "Car Location"
+   - Integration will automatically re-check with new location
+
+2. **Via Service Call**:
    ```yaml
-   homeassistant:
-     packages: !include_dir_named packages
+   service: rbkc_parking_monitor.check_parking
+   data:
+     car_location: "New Street Address"
    ```
-5. Add IMAP integration with Search exactly: `SUBJECT "Parking Suspensions Email Alert"`.
-6. Restart Home Assistant so the package loads (helpers, automation, dashboard registration).
-7. Open the “Parking Monitor” dashboard in the sidebar (provided by the package). If it does not appear, verify `dashboards/parking_dashboard.yaml` exists.
-8. Set your street in the dashboard helper. Update the notify target in the package automation if `notify.notify` is not valid in your setup.
 
-## Configure & Tune
+## How It Works
 
-- **Car location**: set via dashboard helper (persists). Fallback default lives in `/config/pyscript/persist_car_location.py`.
-- **Default backup location**: `Town Hall, Hornton Street` is stored in `pyscript.car_location_backup` until you set your own.
-- **Proximity**: `/config/pyscript/check_parking.py` compare distance (default `<= 100` meters). Adjust for tighter/looser matches.
-- **Upcoming window**: same file, change `datetime.timedelta(days=7)`.
-- **Geocode region hint**: `/config/pyscript_modules/parking_utils.py` query string defaults to Kensington and Chelsea; edit for your area.
-- **Dashboard tweaks**: headers/colors near the top of `dashboards/parking_dashboard.yaml`; map zoom via `default_zoom: 16`.
-- **Caches**: email cache `/config/parking_email_cache.txt`, geocode cache `/config/parking_geo_cache.json`. Delete and restart to refresh.
+1. **Email Arrives**: IMAP integration detects new RBKC suspension email
+2. **Event Fires**: `imap_content` event triggered
+3. **Integration Processes**:
+   - Parses email for suspension blocks (street, dates, location)
+   - Geocodes car location and suspension addresses via OpenStreetMap Nominatim
+   - Calculates distances and checks for matches
+   - Updates binary sensor and device trackers
+4. **Notifications Sent**: If car is at risk, sends urgent notification
+5. **Cached**: Email and geocoding results cached locally for performance
 
-## Quick checks
+## Configuration Options
 
-- `binary_sensor.car_in_suspended_bay` exists after restart.
-- Cache files appear after first run.
-- If parsing seems off, confirm the IMAP Search string matches the exact RBKC subject and include a house number in your stored street.
+| Option | Default | Description |
+|--------|---------|-------------|
+| Car Location | Town Hall, Hornton Street | Street address where your car is parked |
+| Proximity Threshold | 100 meters | Distance to consider a suspension "nearby" |
+| Upcoming Window | 7 days | How far ahead to check for suspensions |
+| Debug Mode | Off | Enable verbose logging |
 
-## Expected Email Format
+## Customization
 
-Expected email block:
+### Proximity Threshold
+
+If you live on a long street and want tighter matching:
+- Lower the proximity threshold (e.g., 50m)
+- This reduces false positives from suspensions far down your street
+
+### Upcoming Window
+
+Adjust how far ahead you want warnings:
+- Increase for more advance notice (e.g., 14 days)
+- Decrease to only see imminent suspensions (e.g., 3 days)
+
+### Notification Service
+
+By default, notifications go to `notify.notify`. To use a different service, you'll need to modify `custom_components/rbkc_parking_monitor/__init__.py`:
+
+```python
+await hass.services.async_call(
+    "notify",
+    "mobile_app_your_phone",  # Change this
+    {...}
+)
 ```
-APPROVED SUSPENSION
-Street Name: Example Street
-Location: Outside No. 12-18
-From Date: 25/11/2024
-To Date: 29/11/2024
-```
-It extracts the street, location text, and start/end dates, then matches suspensions within ~100m of your stored car location.
 
-## Files
+## Troubleshooting
 
-- `pyscript/check_parking.py` - parse email, geocode, set entities
-- `pyscript/persist_car_location.py` - remember car location
-- `pyscript_modules/parking_utils.py` - caching/geocode helpers
-- `packages/parking_monitor.yaml` - helpers, dashboard, entities
-- `dashboards/parking_dashboard.yaml` - Lovelace view
+### "Cache Empty" Status
+
+**Cause**: No suspension email has been received yet
+
+**Fix**: Forward a recent RBKC suspension email to yourself (the account monitored by IMAP integration)
+
+### Car Location Not Geocoding
+
+**Cause**: Address not found by OpenStreetMap
+
+**Fix**:
+- Include a house number in your car location (e.g., "42 Example Street")
+- Be specific: "Example Street, Kensington" is better than just "Example Street"
+
+### No Notifications
+
+**Check**:
+1. Binary sensor state is `on` (car actually at risk)
+2. `notify.notify` service exists and works
+3. Check Home Assistant logs for errors
+
+### Integration Not Loading
+
+**Check**:
+1. Restart Home Assistant after installation
+2. Check `custom_components/rbkc_parking_monitor/` exists
+3. Review Home Assistant logs: Settings → System → Logs
 
 ## Data & Privacy
 
-- Email bodies cached locally at `/config/parking_email_cache.txt`
-- Geocoding via OpenStreetMap Nominatim; results cached at `/config/parking_geo_cache.json`
-- No data leaves your Home Assistant beyond those geocoding requests
+- **Email cache**: Stored locally at `/config/parking_email_cache.txt`
+- **Geocoding cache**: Stored locally at `/config/parking_geo_cache.json`
+- **External API**: OpenStreetMap Nominatim (for geocoding only)
+- **No data leaves your Home Assistant** except geocoding requests
+
+## Contributing
+
+Issues and pull requests welcome at [GitHub](https://github.com/YOUR_GITHUB_USERNAME/rbkc-parking-monitor).
+
+## License
+
+Apache License 2.0

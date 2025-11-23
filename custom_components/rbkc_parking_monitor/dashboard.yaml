@@ -8,10 +8,10 @@ views:
       # Status Header
       - type: vertical-stack
         cards:
-          # Car Location Input
+          # Car Location Display
           - type: tile
-            entity: input_text.car_current_street
-            name: Where is the car?
+            entity: device_tracker.parking_monitor_car
+            name: Car Location
             icon: mdi:car-connected
             color: blue
             tap_action:
@@ -31,7 +31,7 @@ views:
                 <p style="margin:0 0 20px 0;text-align:center;opacity:0.9;font-size:0.95em;">Active suspension at your location</p>
 
                 <h3 style="margin:16px 0 8px 0;font-size:1.2em;">📍 Location</h3>
-                <p style="margin:0 0 16px 0;font-size:1.1em;font-weight:bold;">{{ states('input_text.car_current_street') }}</p>
+                <p style="margin:0 0 16px 0;font-size:1.1em;font-weight:bold;">{{ state_attr('device_tracker.parking_monitor_car', 'location_name') }}</p>
 
                 <h3 style="margin:16px 0 8px 0;font-size:1.2em;">⚠️ Active Suspensions</h3>
                 <p style="margin:0;font-size:1em;line-height:1.6;">{{ state_attr('binary_sensor.car_in_suspended_bay', 'active_suspensions') }}</p>
@@ -131,11 +131,6 @@ views:
           📧 Email Data From: {{ state_attr('binary_sensor.car_in_suspended_bay', 'email_data_date') or 'Unknown' }} • 🔄 Last Checked: {{ state_attr('binary_sensor.car_in_suspended_bay', 'last_checked') or 'Never' }}
           </p>
 
-      # Settings Card
-      - type: entities
-        title: ⚙️ Settings
-        show_header_toggle: false
-        entities:
-          - entity: input_boolean.parking_debug_mode
-            name: Verbose Logging
-            icon: mdi:bug-outline
+          <p style="text-align:center;color:#aaa;font-size:0.85em;margin:16px 0 0 0;">
+          💡 To change car location or settings, go to Settings → Devices & Services → RBKC Parking Monitor → Configure
+          </p>

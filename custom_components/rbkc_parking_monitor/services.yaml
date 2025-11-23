@@ -1,0 +1,12 @@
+check_parking:
+  name: Check Parking
+  description: Manually trigger a parking suspension check
+  fields:
+    email_body:
+      name: Email Body
+      description: Optional email body text to process. If not provided, uses cached email.
+      example: "Subject: Parking Suspensions Email Alert..."
+      required: false
+      selector:
+        text:
+          multiline: true
