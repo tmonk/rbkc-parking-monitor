@@ -1,6 +1,6 @@
 # RBKC Parking Suspension Monitor 🚗
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration) [![version](https://img.shields.io/github/v/release/tmonk/rbkc-parking-monitor)](https://github.com/tmonk/rbkc-parking-monitor/releases)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration) [![version](https://img.shields.io/github/v/release/tmonk/rbkc-parking-monitor)](https://github.com/tmonk/rbkc-parking-monitor/releases) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 **Avoid parking fines in Kensington and Chelsea.** This integration monitors official RBKC suspension emails and alerts you if your car is parked in a suspended bay.
 
